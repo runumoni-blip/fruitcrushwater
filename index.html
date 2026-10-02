@@ -70,6 +70,8 @@
       <li>Tap the water to nudge fruit. Tap a fruit to make it hop. Hit <b>DRAIN</b> in an emergency.</li>
     </ul>
     <button class="btn" id="bStart" disabled>Ripening fruit…</button>
+    <button class="btn ghost" id="bNew" style="display:none">New game from level 1</button>
+    <p id="bestLine" style="display:none"></p>
   </div></div>
 
   <div class="veil" id="vPause"><div class="card">
@@ -84,6 +86,7 @@
       <div class="stat"><b id="wScore">0</b><span>Score</span></div>
       <div class="stat"><b id="wBest">0</b><span>Longest chain</span></div>
     </div>
+    <p id="wHigh"></p>
     <button class="btn" id="bNext">Next level</button>
   </div></div>
 
@@ -1485,7 +1488,13 @@ function startLevel(n, attract) {
   prefill(S.cfg.prefill);
   document.getElementById("startLv").textContent = "Level " + n;
   if (attract) { S.mode = "start"; showVeil("start"); }
-  else { S.mode = "play"; hideVeils(); }
+  else { S.mode = "play"; hideVeils(); levelIntro(); }
+}
+
+function levelIntro() {
+  const c = S.cfg, fresh = c.kinds > (S.level > 1 ? levelCfg(S.level - 1).kinds : 0) && S.level > 1;
+  text("praise", "Level " + S.level, W / 2, 610, 78, "#fff2b8", 1.8, "#ffb347");
+  if (fresh) text("combo", "New fruit: " + KINDS[c.kinds - 1].name + "!", W / 2, 700, 34, "#c8f7ff", 2.2);
 }
 
 function winLevel() {
@@ -1510,15 +1519,29 @@ function showEndCard() {
   if (S.mode === "win") {
     document.getElementById("wScore").textContent = S.score;
     document.getElementById("wBest").textContent = S.bestChain ? "×" + S.bestChain : "—";
+    const r = recordProgress(S.level + 1, S.score);
+    document.getElementById("wHigh").textContent = r.isNew ? "New best score!" : "Best score: " + r.best;
     showVeil("win");
   } else {
     document.getElementById("lScore").textContent = S.score;
+    recordProgress(S.level, S.scoreAtStart);
     document.getElementById("lLeft").textContent = S.fruits.filter(f => !f.dead && !f.bomb).length + S.quotaLeft + S.extra.length;
     document.getElementById("loseMsg").textContent = S.loseReason === "flood"
       ? "The glass filled to the brim and spilled over."
       : "The rising water lifted the fruit over the rim.";
     showVeil("lose");
   }
+}
+
+/* ---------- saved progress: the furthest level reached and the best score ---------- */
+const Save = {
+  get() { try { return JSON.parse(localStorage.getItem("ffSave") || "{}"); } catch (e) { return {}; } },
+  put(o) { try { localStorage.setItem("ffSave", JSON.stringify(Object.assign(this.get(), o))); } catch (e) { /* private mode */ } }
+};
+function recordProgress(level, score) {
+  const s = Save.get(), best = Math.max(s.best || 0, S.score);
+  Save.put({ level, best, score });
+  return { best, isNew: S.score > (s.best || 0) };
 }
 
 function useValve() {
@@ -2341,7 +2364,14 @@ function frame(ts) {
   }
   if (S.mode === "load" && artReady()) {
     startLevel(1, true);
-    const b = document.getElementById("bStart"); b.disabled = false; b.textContent = "Start";
+    const b = document.getElementById("bStart"), sv = Save.get();
+    b.disabled = false;
+    if ((sv.level || 1) > 1) {
+      b.textContent = "Continue — level " + sv.level;
+      document.getElementById("startLv").textContent = "Level " + sv.level;
+      document.getElementById("bNew").style.display = "block";
+    } else b.textContent = "Start";
+    if (sv.best) { const l = document.getElementById("bestLine"); l.textContent = "Best score: " + sv.best; l.style.display = "block"; }
   }
   const turbo = Hook.turbo | 0 || 1;
   for (let i = 0; i < turbo; i++) { update(dt); if (Hook.tick) Hook.tick(dt); }
@@ -2360,7 +2390,19 @@ function resize() {
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 120));
 
-document.getElementById("bStart").onclick   = () => { if (S.mode !== "start") return; Snd.boot(); Snd.click(); S.mode = "play"; S.idleT = 0; hideVeils(); };
+document.getElementById("bStart").onclick   = () => {
+  if (S.mode !== "start") return;
+  Snd.boot(); Snd.click();
+  const sv = Save.get();
+  if ((sv.level || 1) > 1) { S.score = sv.score || 0; S.shownScore = S.score; startLevel(sv.level); }
+  else { S.mode = "play"; S.idleT = 0; hideVeils(); levelIntro(); }
+};
+document.getElementById("bNew").onclick     = () => {
+  if (S.mode !== "start") return;
+  Snd.boot(); Snd.click();
+  Save.put({ level: 1, score: 0 });
+  S.score = S.shownScore = 0; startLevel(1);
+};
 document.getElementById("bResume").onclick  = () => { Snd.boot(); if (S.mode === "pause") { S.mode = "play"; hideVeils(); } };
 document.getElementById("bRestart").onclick = () => { Snd.boot(); S.score = S.scoreAtStart; startLevel(S.level); };
 document.getElementById("bNext").onclick    = () => { Snd.boot(); startLevel(S.level + 1); };

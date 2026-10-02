@@ -14,6 +14,7 @@ Open `index.html` in any modern browser. It's a single file with no downloads or
 - **DRAIN** (or the space bar) empties a lot of water fast. You get 3 per level, and unused ones pay a bonus.
 - If fruit pokes over the rim for 3 seconds, or the water reaches the brim, the glass overflows.
 - Pause with the button, `P`, or `Esc`. The game also pauses if you switch away.
+- Your progress and best score are saved in the browser. Next time, **Continue** picks up at the level you reached, or start a **New game** from level 1.
 
 When you're stuck, the game helps. After a few idle seconds a hint glows, and on early levels a ghost finger traces a chain. If no chain exists, matching fruit slowly drift toward each other.
 
